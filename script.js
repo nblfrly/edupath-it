@@ -26,7 +26,63 @@ let PROG=Array.from({length:16},(_,i)=>{const j=['web','data','ux','sec','mobile
  return{id:i+1,nama:`Nama Program ${i+1}`,penyedia:'Nama Penyedia',jalur:j,biaya:free?0:(i+1)*350000,durasi:free?3:(i%5)+1,satuan:free?'minggu':'bulan',mode:i%4===3?'Offline':'Online',status:['Aktif','Aktif','Draf','Aktif','Nonaktif'][i%5],desc:'Deskripsi program akan tampil di sini: apa yang dipelajari, siapa yang cocok, dan hasil yang didapat peserta.',url:'https://example.com',tgl:`2026-0${(i%9)+1}-15`}});
 const dur=p=>`${p.durasi} ${p.satuan}`;
 const durBucket=p=>{const m=p.satuan==='minggu'?p.durasi/4:p.durasi;return m<1?'a':m<=3?'b':'c'};
-const user=()=>JSON.parse(localStorage.getItem('ep_user')||'null');
+const readStoredJson=(storage,key,fallback)=>{
+  try{
+    const raw=storage.getItem(key);
+    return raw?JSON.parse(raw):fallback;
+  }catch{
+    return fallback;
+  }
+};
+
+const user=()=>{
+  const profile=readStoredJson(localStorage,'ep_user',null)
+    ||readStoredJson(sessionStorage,'ep_session_user',null);
+  return profile?.demoAuthVersion===1?profile:null;
+};
+
+const demoUsers=()=>{
+  const accounts=readStoredJson(localStorage,'ep_users',[]);
+  return Array.isArray(accounts)?accounts:[];
+};
+
+const setDemoSession=(profile,remember)=>{
+  localStorage.removeItem('ep_user');
+  sessionStorage.removeItem('ep_session_user');
+
+  const storage=remember?localStorage:sessionStorage;
+  const key=remember?'ep_user':'ep_session_user';
+
+  storage.setItem(key,JSON.stringify({
+    ...profile,
+    demoAuthVersion:1
+  }));
+};
+
+const demoUserBar=()=>{
+  const current=user();
+  return `<div class="row" style="justify-content:flex-end;align-items:center;margin-bottom:1rem">
+    <span class="hint">Mode demo · Masuk sebagai ${esc(current?.nama||current?.email||'Pengguna')}</span>
+    <button type="button" class="btn ghost sm" id="logout">Keluar</button>
+  </div>`;
+};
+
+const finishAuth=()=>{
+  const destination=sessionStorage.getItem('ep_return_to')||'#/';
+
+  sessionStorage.removeItem('ep_return_to');
+  location.hash=destination.startsWith('#/')?destination:'#/';
+};
+
+const logout=()=>{
+  localStorage.removeItem('ep_user');
+  sessionStorage.removeItem('ep_session_user');
+  sessionStorage.removeItem('ep_hasil');
+  sessionStorage.removeItem('ep_return_to');
+
+  toast('Berhasil keluar dari akun demo.');
+  location.hash='#/masuk';
+};
 
 /* ---------- Komponen ---------- */
 const card=(p,h)=>`<article class="card pc ${h?'h':''}"><div class="ph">Gambar program</div><div class="b">
@@ -116,7 +172,7 @@ V.jalurD=id=>{const j=JALUR.find(x=>x.id===id);if(!j)return notFound();const l=P
  <div class="card dash" style="margin-top:1rem"><b>Siap melamar ke jalur ini?</b><p class="mute">Cek kesiapan CV dan portofoliomu dengan review AI.</p><a class="btn block" href="#/review?j=${j.id}">Review CV saya</a></div></aside></div></div>`};
 
 /* ---------- Review CV ---------- */
-V.review=q=>{const j=new URLSearchParams(q).get('j')||'';return`<div class="wrap" style="max-width:760px"><div style="text-align:center"><h1>Review CV dan Portofolio dengan AI</h1><p class="mute">Unggah dokumenmu dan dapatkan masukan tentang kekuatan, kekurangan, dan saran perbaikan.</p>
+V.review=q=>{const j=new URLSearchParams(q).get('j')||'';return`<div class="wrap" style="max-width:760px">${demoUserBar()}<div style="text-align:center"><h1>Review CV dan Portofolio dengan AI</h1><p class="mute">Unggah dokumenmu dan dapatkan masukan tentang kekuatan, kekurangan, dan saran perbaikan.</p>
  <div class="stepper" style="justify-content:center"><span class="on" id="s1">1 Unggah</span><span id="s2">2 Diproses AI</span><span id="s3">3 Hasil review</span></div></div>
  <form class="card" id="rf" novalidate><label>CV *</label><div class="drop" id="drop"><p>Tarik file ke sini atau pilih dari perangkat</p><label class="btn ghost sm" style="display:inline-block;margin:0">Pilih file<input type="file" id="cv" accept=".pdf,.docx" hidden></label><p class="hint" style="margin:.5rem 0 0">Format PDF atau DOCX, maksimal 2 MB</p></div>
  <div id="fi"></div><div class="err-t" id="fe"></div>
@@ -196,11 +252,11 @@ V.review.after=()=>{
    const r=()=>55+Math.floor(Math.random()*40),a=[r(),r(),r(),r()];
    sessionStorage.setItem('ep_hasil',JSON.stringify({nama:file.name,j:fd.get('j'),tgl:new Date().toISOString(),a,total:Math.round(a.reduce((x,y)=>x+y)/4)}));location.hash='#/hasil'}},350)}};
 
-V.hasil=()=>{const h=JSON.parse(sessionStorage.getItem('ep_hasil')||'null');if(!h)return`<div class="wrap"><div class="card dash"><h3>Belum ada hasil review</h3><p class="mute">Unggah CV untuk mendapatkan review.</p><a class="btn" href="#/review">Review CV saya</a></div></div>`;
+V.hasil=()=>{const h=JSON.parse(sessionStorage.getItem('ep_hasil')||'null');const userBar=demoUserBar();if(!h)return`<div class="wrap">${userBar}<div class="card dash"><h3>Belum ada hasil review</h3><p class="mute">Unggah CV untuk mendapatkan review.</p><a class="btn" href="#/review">Review CV saya</a></div></div>`;
  const A=['Struktur dan format','Kesesuaian dengan jalur','Keahlian dan proyek','Kejelasan dan bahasa'];
  const S=[['Ringkasan profil','Prioritas tinggi','off'],['Pengalaman','Prioritas sedang','warn'],['Keahlian','Prioritas sedang','warn'],['Proyek dan portofolio','Prioritas tinggi','off']];
  const rec=PROG.filter(p=>p.jalur===h.j&&p.status==='Aktif').concat(PROG.filter(p=>p.status==='Aktif')).slice(0,3);
- return`<div class="wrap"><h1>Hasil Review AI</h1><div class="row" style="justify-content:space-between"><p class="mute" style="margin:0">${esc(h.nama)} · Jalur: ${jn(h.j)} · Direview pada ${new Date(h.tgl).toLocaleDateString('id-ID')}</p><span class="row" style="flex:0"><a class="btn ghost sm" href="#/review">Unggah versi baru</a><button class="btn sm" onclick="window.print()">Unduh hasil</button></span></div>
+ return`<div class="wrap">${userBar}<h1>Hasil Review AI</h1><div class="row" style="justify-content:space-between"><p class="mute" style="margin:0">${esc(h.nama)} · Jalur: ${jn(h.j)} · Direview pada ${new Date(h.tgl).toLocaleDateString('id-ID')}</p><span class="row" style="flex:0"><a class="btn ghost sm" href="#/review">Unggah versi baru</a><button class="btn sm" onclick="window.print()">Unduh hasil</button></span></div>
  <div class="grid g2" style="margin-top:1rem"><div class="card row"><div class="score" style="--s:${h.total};flex:0 0 130px"><span>${h.total}</span></div><div><b>Skor keseluruhan (dari 100)</b><p class="mute">Ringkasan singkat kesiapan CV untuk jalur yang dipilih.</p></div></div>
  <div class="card"><b>Skor per aspek</b>${A.map((a,i)=>`<div class="asp"><span>${a}</span><div class="bar"><i style="width:${h.a[i]}%"></i></div><b>${h.a[i]}/100</b></div>`).join('')}</div>
  <div class="card"><h3>Kekuatan</h3><ul><li>Poin kekuatan 1</li><li>Poin kekuatan 2</li><li>Poin kekuatan 3</li></ul></div><div class="card"><h3>Perlu diperbaiki</h3><ul><li>Poin perbaikan 1</li><li>Poin perbaikan 2</li><li>Poin perbaikan 3</li></ul></div></div>
@@ -209,30 +265,238 @@ V.hasil=()=>{const h=JSON.parse(sessionStorage.getItem('ep_hasil')||'null');if(!
  <p class="hint" style="margin-top:1rem">Review dihasilkan oleh AI dan bersifat saran. Tetap sesuaikan dengan kebutuhan dan penilaianmu sendiri.</p></div>`};
 
 /* ---------- Auth ---------- */
+
 const mailOk=v=>/^\S+@\S+\.\S+$/.test(v);
+const demoPasswordIterations=120000;
+
+const createDemoSalt=()=>{
+  if(!window.crypto?.getRandomValues){
+    throw new Error('Browser tidak mendukung fitur keamanan akun demo.');
+  }
+
+  return Array.from(
+    window.crypto.getRandomValues(new Uint8Array(16)),
+    b=>b.toString(16).padStart(2,'0')
+  ).join('');
+};
+
+const hashDemoPassword=async(password,saltHex)=>{
+  if(!window.crypto?.subtle){
+    throw new Error('Gunakan browser modern melalui localhost atau HTTPS.');
+  }
+
+  const salt=Uint8Array.from(
+    saltHex.match(/.{2}/g)||[],
+    byte=>parseInt(byte,16)
+  );
+
+  const key=await window.crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+
+  const bits=await window.crypto.subtle.deriveBits({
+    name:'PBKDF2',
+    salt,
+    iterations:demoPasswordIterations,
+    hash:'SHA-256'
+  },key,256);
+
+  return Array.from(
+    new Uint8Array(bits),
+    b=>b.toString(16).padStart(2,'0')
+  ).join('');
+};
+
 V.masuk=()=>`<div class="authwrap"><aside><a class="logo" href="#/">EduPath IT</a><h1 style="margin-top:2rem">Temukan jalur dan program IT yang tepat untukmu</h1><p class="mute">Simpan program favorit dan dapatkan review CV dengan AI.</p></aside>
- <form id="lf" novalidate><h2>Masuk</h2><p class="mute">Masuk ke akun EduPath IT mu.</p><div id="la"></div>
- <label>Email</label><input name="e" type="email" placeholder="nama@email.com" autocomplete="email"><label>Kata sandi</label><input name="p" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password">
- <div class="row" style="justify-content:space-between;margin:.8rem 0"><label style="margin:0;font-weight:400;display:flex;gap:.4rem"><input type="checkbox" style="width:auto">Ingat saya</label><a class="hint" href="#/masuk" style="flex:0;white-space:nowrap">Lupa kata sandi?</a></div>
- <button class="btn block">Masuk</button><p class="hint" style="margin-top:1rem">Belum punya akun? <a href="#/daftar" style="color:var(--pri)">Daftar</a> · Admin? <a href="#/admin" style="color:var(--pri)">Masuk ke dashboard</a></p></form></div>`;
-V.masuk.after=()=>$('#lf').onsubmit=e=>{e.preventDefault();const d=new FormData(e.target);
- if(!mailOk(d.get('e'))||!d.get('p')){$('#la').innerHTML='<div class="alert e">Email atau kata sandi salah. Coba lagi.</div>';return}
- localStorage.setItem('ep_user',JSON.stringify({email:d.get('e')}));toast('Berhasil masuk');location.hash='#/'};
+
+<form id="lf" novalidate>
+  <h2>Masuk</h2>
+  <p class="mute">Masuk ke akun EduPath IT mu.</p>
+  <p class="hint">Mode demo: akun hanya tersimpan di browser ini. Gunakan kata sandi khusus demo, bukan kata sandi penting milikmu.</p>
+  <div id="la" aria-live="polite"></div>
+
+  <label>Email</label>
+  <input name="e" type="email" placeholder="nama@email.com" autocomplete="email" required>
+
+  <label>Kata sandi</label>
+  <input name="p" type="password" placeholder="Masukkan kata sandi" autocomplete="current-password" required>
+
+  <div class="row" style="justify-content:space-between;margin:.8rem 0">
+    <label style="margin:0;font-weight:400;display:flex;gap:.4rem">
+      <input type="checkbox" name="remember" style="width:auto">Ingat saya
+    </label>
+    <span class="hint">Pemulihan kata sandi belum tersedia pada demo.</span>
+  </div>
+
+  <button class="btn block">Masuk</button>
+  <p class="hint" style="margin-top:1rem">Belum punya akun? <a href="#/daftar" style="color:var(--pri)">Daftar</a> · Admin? <a href="#/admin" style="color:var(--pri)">Masuk ke dashboard</a></p>
+</form></div>`;
+
+V.masuk.after=()=>{
+  const form=$('#lf');
+
+  form.onsubmit=async e=>{
+    e.preventDefault();
+
+    const data=new FormData(form);
+    const email=String(data.get('e')||'').trim().toLowerCase();
+    const password=String(data.get('p')||'');
+
+    const showError=message=>{
+      $('#la').innerHTML=`<div class="alert e" role="alert">${esc(message)}</div>`;
+    };
+
+    if(!mailOk(email)||!password){
+      showError('Masukkan email dan kata sandi yang valid.');
+      return;
+    }
+
+    const account=demoUsers().find(item=>item.email===email);
+
+    if(!account||!account.passwordSalt||!account.passwordHash){
+      showError('Akun demo tidak ditemukan. Silakan daftar terlebih dahulu.');
+      return;
+    }
+
+    const submit=form.querySelector('button');
+    submit.disabled=true;
+
+    try{
+      const hash=await hashDemoPassword(password,account.passwordSalt);
+
+      if(hash!==account.passwordHash){
+        showError('Email atau kata sandi salah. Coba lagi.');
+        return;
+      }
+
+      const previous=user();
+      if(previous&&previous.email!==email){
+        sessionStorage.removeItem('ep_hasil');
+      }
+
+      setDemoSession({
+        email:account.email,
+        nama:account.nama
+      },form.elements.remember.checked);
+
+      toast('Berhasil masuk ke akun demo.');
+      finishAuth();
+
+    }catch(error){
+      showError(error.message||'Login demo tidak dapat diproses. Coba lagi.');
+    }finally{
+      submit.disabled=false;
+    }
+  };
+};
+
 V.daftar=()=>`<div class="authwrap"><aside><a class="logo" href="#/">EduPath IT</a><h1 style="margin-top:2rem">Buat akun dan mulai rencanakan karier ITmu</h1><ul><li>Simpan program yang kamu minati</li><li>Review CV dan portofolio dengan AI</li><li>Pantau riwayat review</li></ul></aside>
- <form id="df" novalidate><h2>Daftar</h2><p class="mute">Isi data berikut untuk membuat akun baru.</p>
- <label>Nama lengkap</label><input name="n" placeholder="Nama lengkap"><div class="err-t" data-e="n"></div>
- <label>Email</label><input name="e" type="email" placeholder="nama@email.com"><div class="err-t" data-e="e"></div>
- <label>Kata sandi</label><input name="p" type="password" placeholder="Minimal 8 karakter"><div class="hint">Gunakan kombinasi huruf, angka, dan simbol.</div><div class="err-t" data-e="p"></div>
- <label>Ulangi kata sandi</label><input name="p2" type="password" placeholder="Ulangi kata sandi"><div class="err-t" data-e="p2"></div>
- <label>Jalur IT yang diminati (opsional)</label><select name="j">${jalurOpts()}</select>
- <label style="display:flex;gap:.5rem;font-weight:400;margin-top:1rem"><input type="checkbox" name="t" style="width:auto">Saya menyetujui Syarat dan Ketentuan serta Kebijakan Privasi.</label><div class="err-t" data-e="t"></div>
- <button class="btn block" style="margin-top:1rem">Buat akun</button><p class="hint" style="margin-top:1rem">Sudah punya akun? <a href="#/masuk" style="color:var(--pri)">Masuk</a></p></form></div>`;
-V.daftar.after=()=>$('#df').onsubmit=e=>{e.preventDefault();const f=e.target,v=n=>f.elements[n].value;const E={};
- if(v('n').trim().length<2)E.n='Isi nama lengkap.';if(!mailOk(v('e')))E.e='Format email tidak valid.';
- if(v('p').length<8||!/\d/.test(v('p'))||!/[a-z]/i.test(v('p')))E.p='Minimal 8 karakter dengan huruf dan angka.';
- if(v('p')!==v('p2'))E.p2='Kata sandi tidak sama.';if(!f.elements.t.checked)E.t='Setujui syarat dan ketentuan untuk melanjutkan.';
- $$('[data-e]',f).forEach(x=>x.textContent=E[x.dataset.e]||'');if(Object.keys(E).length)return;
- localStorage.setItem('ep_user',JSON.stringify({email:v('e'),nama:v('n')}));toast('Akun berhasil dibuat');location.hash='#/'};
+
+<form id="df" novalidate>
+  <h2>Daftar</h2>
+  <p class="mute">Isi data berikut untuk membuat akun demo.</p>
+  <p class="hint">Akun hanya disimpan di browser ini dan belum terhubung ke server EduPath IT.</p>
+  <div id="da" class="err-t" role="alert"></div>
+
+  <label>Nama lengkap</label>
+  <input name="n" placeholder="Nama lengkap" autocomplete="name">
+  <div class="err-t" data-e="n"></div>
+
+  <label>Email</label>
+  <input name="e" type="email" placeholder="nama@email.com" autocomplete="email">
+  <div class="err-t" data-e="e"></div>
+
+  <label>Kata sandi</label>
+  <input name="p" type="password" placeholder="Minimal 8 karakter" autocomplete="new-password">
+  <div class="hint">Gunakan minimal 8 karakter dengan kombinasi huruf dan angka.</div>
+  <div class="err-t" data-e="p"></div>
+
+  <label>Ulangi kata sandi</label>
+  <input name="p2" type="password" placeholder="Ulangi kata sandi" autocomplete="new-password">
+  <div class="err-t" data-e="p2"></div>
+
+  <label>Jalur IT yang diminati (opsional)</label>
+  <select name="j">${jalurOpts()}</select>
+
+  <label style="display:flex;gap:.5rem;font-weight:400;margin-top:1rem">
+    <input type="checkbox" name="t" style="width:auto">Saya menyetujui Syarat dan Ketentuan serta Kebijakan Privasi.
+  </label>
+  <div class="err-t" data-e="t"></div>
+
+  <button class="btn block" style="margin-top:1rem">Buat akun demo</button>
+  <p class="hint" style="margin-top:1rem">Sudah punya akun? <a href="#/masuk" style="color:var(--pri)">Masuk</a></p>
+</form></div>`;
+
+V.daftar.after=()=>{
+  const form=$('#df');
+
+  form.onsubmit=async e=>{
+    e.preventDefault();
+
+    const value=name=>String(form.elements[name].value||'');
+    const email=value('e').trim().toLowerCase();
+    const nama=value('n').trim();
+    const password=value('p');
+    const errors={};
+
+    if(nama.length<2)errors.n='Isi nama lengkap.';
+    if(!mailOk(email))errors.e='Format email tidak valid.';
+    else if(demoUsers().some(item=>item.email===email)){
+      errors.e='Email sudah terdaftar. Silakan masuk.';
+    }
+
+    if(password.length<8||!/\d/.test(password)||!/[a-z]/i.test(password)){
+      errors.p='Minimal 8 karakter dengan kombinasi huruf dan angka.';
+    }
+
+    if(password!==value('p2'))errors.p2='Kata sandi tidak sama.';
+    if(!form.elements.t.checked)errors.t='Setujui syarat dan ketentuan untuk melanjutkan.';
+
+    $$('.err-t[data-e]',form).forEach(element=>{
+      element.textContent=errors[element.dataset.e]||'';
+    });
+    $('#da').textContent='';
+
+    if(Object.keys(errors).length)return;
+
+    const submit=form.querySelector('button');
+    submit.disabled=true;
+
+    try{
+      const salt=createDemoSalt();
+      const passwordHash=await hashDemoPassword(password,salt);
+
+      const accounts=demoUsers();
+      accounts.push({
+        nama,
+        email,
+        passwordSalt:salt,
+        passwordHash,
+        jalur:value('j'),
+        createdAt:new Date().toISOString()
+      });
+
+      localStorage.setItem('ep_users',JSON.stringify(accounts));
+      sessionStorage.removeItem('ep_hasil');
+
+      setDemoSession({nama,email},true);
+
+      toast('Akun demo berhasil dibuat.');
+      finishAuth();
+
+    }catch(error){
+      $('#da').textContent=error.message||'Akun demo gagal dibuat. Coba lagi.';
+    }finally{
+      submit.disabled=false;
+    }
+  };
+};
+
+/* ---------- Admin ---------- */
 
 /* ---------- Admin ---------- */
 const side=on=>`<aside class="side"><strong>EduPath IT Admin</strong>${[['Dashboard','#/admin'],['Kelola Program','#/admin/program'],['Jalur Karier','#/jalur'],['Pengguna','#/admin'],['Riwayat Review AI','#/admin']].map(([t,h])=>`<a class="${t===on?'on':''}" href="${h}">${t}</a>`).join('')}<span class="grow"></span><a href="#/masuk">Keluar</a></aside>`;
@@ -280,6 +544,12 @@ const notFound=()=>`<div class="wrap"><div class="card dash"><h3>Halaman tidak d
 /* ---------- Router ---------- */
 function route(){
  const [path,q='']=(location.hash.slice(1)||'/').split('?'),seg=path.split('/').filter(Boolean);
+
+  if(['review','hasil'].includes(seg[0])&&!user()){
+    sessionStorage.setItem('ep_return_to',location.hash||'#/review');
+    location.hash='#/masuk';
+    return;
+  }
  let v,arg=q,after;
  if(!seg.length)v=V.home;
  else if(seg[0]==='program')v=seg[1]?()=>V.program(seg[1]):()=>V.cari('');
@@ -292,6 +562,7 @@ function route(){
  document.body.classList.toggle('auth',['masuk','daftar'].includes(seg[0]));
  document.body.classList.toggle('admin',seg[0]==='admin');
  app.innerHTML=v(arg);
+ const logoutButton=$('#logout');if(logoutButton)logoutButton.onclick=logout;
  const key=Object.keys(V).find(k=>V[k]===v);if(key&&V[key].after)V[key].after(arg);
  else if(seg[0]==='cari')V.cari.after(q);
  $$('#menu a:not(.btn)').forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#/'+seg[0]));
