@@ -118,17 +118,74 @@ V.jalurD=id=>{const j=JALUR.find(x=>x.id===id);if(!j)return notFound();const l=P
 /* ---------- Review CV ---------- */
 V.review=q=>{const j=new URLSearchParams(q).get('j')||'';return`<div class="wrap" style="max-width:760px"><div style="text-align:center"><h1>Review CV dan Portofolio dengan AI</h1><p class="mute">Unggah dokumenmu dan dapatkan masukan tentang kekuatan, kekurangan, dan saran perbaikan.</p>
  <div class="stepper" style="justify-content:center"><span class="on" id="s1">1 Unggah</span><span id="s2">2 Diproses AI</span><span id="s3">3 Hasil review</span></div></div>
- <form class="card" id="rf" novalidate><label>CV *</label><div class="drop" id="drop"><p>Tarik file ke sini atau pilih dari perangkat</p><label class="btn ghost sm" style="display:inline-block;margin:0">Pilih file<input type="file" id="cv" accept=".pdf,.docx" hidden></label><p class="hint" style="margin:.5rem 0 0">Format PDF atau DOCX, maksimal 5 MB</p></div>
+ <form class="card" id="rf" novalidate><label>CV *</label><div class="drop" id="drop"><p>Tarik file ke sini atau pilih dari perangkat</p><label class="btn ghost sm" style="display:inline-block;margin:0">Pilih file<input type="file" id="cv" accept=".pdf,.docx" hidden></label><p class="hint" style="margin:.5rem 0 0">Format PDF atau DOCX, maksimal 2 MB</p></div>
  <div id="fi"></div><div class="err-t" id="fe"></div>
  <label>Portofolio (opsional)</label><input name="port" type="url" placeholder="https://tautan-portofolio-kamu"><div class="hint">Tempel tautan portofolio kamu.</div>
  <div class="row"><div><label>Jalur IT yang dituju *</label><select name="j" required>${jalurOpts(j)}</select></div><div><label>Posisi yang dilamar (opsional)</label><input name="pos" placeholder="Contoh: Junior Frontend Developer"></div></div>
  <p class="alert i">File hanya dipakai untuk menghasilkan review. Hindari mengunggah dokumen yang berisi data sensitif seperti nomor identitas.</p>
  <div class="row" style="justify-content:flex-end"><a class="btn ghost" href="#/">Batal</a><button class="btn">Mulai review</button></div></form>
  <div class="card dash" id="ld" hidden><p id="lt">AI sedang membaca dokumenmu. Proses ini membutuhkan beberapa saat.</p><div class="bar"><i id="lb" style="width:0"></i></div></div></div>`};
-V.review.after=()=>{let file=null;const set=f=>{$('#fe').textContent='';
-  if(!f)return;if(!/\.(pdf|docx)$/i.test(f.name)){$('#fe').textContent='Format file harus PDF atau DOCX.';return}
-  if(f.size>5*1048576){$('#fe').textContent='Ukuran file melebihi 5 MB.';return}
-  file=f;$('#fi').innerHTML=`<div class="row" style="justify-content:space-between;margin-top:.6rem"><span>📄 ${esc(f.name)} <span class="mute">${(f.size/1048576).toFixed(1)} MB</span></span><button type="button" class="btn ghost sm" id="rm" style="flex:0">Hapus</button></div>`;$('#rm').onclick=()=>{file=null;$('#fi').innerHTML='';$('#cv').value=''}};
+V.review.after=()=>{
+  let file=null;
+
+  const clearFile=()=>{
+    file=null;
+    $('#fi').innerHTML='';
+    $('#cv').value='';
+  };
+
+  const set=f=>{
+    $('#fe').textContent='';
+
+    if(!f){
+      clearFile();
+      return;
+    }
+
+    // Hapus pilihan sebelumnya sebelum memvalidasi file baru.
+    file=null;
+    $('#fi').innerHTML='';
+
+    const ext=f.name.split('.').pop().toLowerCase();
+    const mime=f.type.toLowerCase();
+
+    const mimeTypes={
+      pdf:['application/pdf','application/octet-stream'],
+      docx:[
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/zip',
+        'application/x-zip-compressed',
+        'application/octet-stream'
+      ]
+    };
+
+    if(!mimeTypes[ext] || (mime && !mimeTypes[ext].includes(mime))){
+      $('#fe').textContent='Format file harus PDF atau DOCX yang sesuai.';
+      $('#cv').value='';
+      return;
+    }
+
+    if(f.size<1){
+      $('#fe').textContent='File kosong atau tidak dapat dibaca.';
+      $('#cv').value='';
+      return;
+    }
+
+    if(f.size>2*1024*1024){
+      $('#fe').textContent='Ukuran file melebihi batas maksimal 2 MB.';
+      $('#cv').value='';
+      return;
+    }
+
+    file=f;
+
+    $('#fi').innerHTML=`<div class="row" style="justify-content:space-between;margin-top:.6rem"><span>📄 ${esc(f.name)} <span class="mute">${(f.size/1048576).toFixed(2)} MB</span></span><button type="button" class="btn ghost sm" id="rm" style="flex:0">Hapus</button></div>`;
+
+    $('#rm').onclick=()=>{
+      clearFile();
+      $('#fe').textContent='';
+    };
+  };
  $('#cv').onchange=e=>set(e.target.files[0]);
  const d=$('#drop');['dragover','dragenter'].forEach(t=>d.addEventListener(t,e=>{e.preventDefault();d.classList.add('over')}));
  ['dragleave','drop'].forEach(t=>d.addEventListener(t,e=>{e.preventDefault();d.classList.remove('over')}));d.addEventListener('drop',e=>set(e.dataTransfer.files[0]));
