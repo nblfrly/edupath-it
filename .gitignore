@@ -1,0 +1,14 @@
+
+# Local configuration
+/config/database.php
+/config/ai.php
+/config/groq.php
+
+# Dependencies and temporary files
+/vendor/
+/tmp/
+.DS_Store
+*.log
+
+# Local backups
+*.backup
