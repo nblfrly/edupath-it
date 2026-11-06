@@ -7,17 +7,21 @@ const toast=m=>{const t=$('#toast');t.textContent=m;t.classList.add('show');clea
 
 /* ---------- Data contoh ---------- */
 const JALUR=[
- ['web','Web Development','Membangun situs dan aplikasi web dari sisi tampilan maupun server.',['HTML/CSS','JavaScript','Git','API','Database','Deployment'],['Frontend Developer','Backend Developer','Fullstack Developer']],
- ['mobile','Mobile Development','Membuat aplikasi untuk perangkat Android dan iOS.',['Kotlin/Swift','Flutter','UI mobile','REST API','Git','Publikasi aplikasi'],['Android Developer','iOS Developer','Flutter Developer']],
- ['data','Data Science','Mengolah dan menganalisis data untuk menemukan wawasan.',['Python','SQL','Statistika','Visualisasi','Excel','Storytelling data'],['Data Analyst','Data Scientist','BI Analyst']],
- ['ai','AI & Machine Learning','Merancang model yang belajar dari data.',['Python','Matematika','Machine learning','Deep learning','MLOps','Eksperimen'],['ML Engineer','AI Engineer','Research Assistant']],
- ['ux','UI/UX Design','Merancang pengalaman dan antarmuka produk digital.',['Riset pengguna','Wireframe','Prototipe','Figma','Design system','Uji kegunaan'],['UI Designer','UX Researcher','Product Designer']],
- ['sec','Cyber Security','Melindungi sistem dan data dari ancaman.',['Jaringan','Linux','Kriptografi','Pentest','Analisis log','Respons insiden'],['Security Analyst','Pentester','SOC Analyst']],
- ['cloud','Cloud & DevOps','Mengelola infrastruktur dan alur rilis perangkat lunak.',['Linux','Docker','CI/CD','Cloud (AWS/GCP)','Monitoring','Scripting'],['DevOps Engineer','Cloud Engineer','SRE']],
- ['qa','Quality Assurance','Memastikan kualitas perangkat lunak lewat pengujian.',['Test case','Pengujian manual','Otomasi tes','Bug report','API testing','Agile'],['QA Tester','QA Automation','Test Engineer']]
+  ['web','Web Development','Membangun situs dan aplikasi web dari sisi tampilan maupun server.',['HTML/CSS','JavaScript','Git','API','Database','Deployment'],['Frontend Developer','Backend Developer','Fullstack Developer']],
+  ['mobile','Mobile Development','Membuat aplikasi untuk perangkat Android dan iOS.',['Kotlin/Swift','Flutter','UI mobile','REST API','Git','Publikasi aplikasi'],['Android Developer','iOS Developer','Flutter Developer']],
+  ['data','Data Science','Mengolah dan menganalisis data untuk menemukan wawasan.',['Python','SQL','Statistika','Visualisasi','Excel','Storytelling data'],['Data Analyst','Data Scientist','BI Analyst']],
+  ['ai','AI & Machine Learning','Merancang model yang belajar dari data.',['Python','Matematika','Machine learning','Deep learning','MLOps','Eksperimen'],['ML Engineer','AI Engineer','Research Assistant']],
+  ['ux','UI/UX Design','Merancang pengalaman dan antarmuka produk digital.',['Riset pengguna','Wireframe','Prototipe','Figma','Design system','Uji kegunaan'],['UI Designer','UX Researcher','Product Designer']],
+  ['sec','Cyber Security','Melindungi sistem dan data dari ancaman.',['Jaringan','Linux','Kriptografi','Pentest','Analisis log','Respons insiden'],['Security Analyst','Pentester','SOC Analyst']],
+  ['cloud','Cloud & DevOps','Mengelola infrastruktur dan alur rilis perangkat lunak.',['Linux','Docker','CI/CD','Cloud (AWS/GCP)','Monitoring','Scripting'],['DevOps Engineer','Cloud Engineer','SRE']],
+  ['qa','Quality Assurance','Memastikan kualitas perangkat lunak lewat pengujian.',['Test case','Pengujian manual','Otomasi tes','Bug report','API testing','Agile'],['QA Tester','QA Automation','Test Engineer']],
+  ['net','Networking & Infrastructure','Merancang, mengelola, dan memelihara jaringan komputer serta infrastruktur TI.',['TCP/IP','Routing & Switching','Linux','Network Security','Monitoring','Troubleshooting'],['Network Engineer','System Administrator','Network Administrator']],
+  ['db','Database & Data Engineering','Merancang, mengelola, dan memproses data agar tersimpan, terintegrasi, dan mudah digunakan.',['SQL','Database Design','PostgreSQL/MySQL','Data Modeling','ETL/ELT','Backup & Recovery'],['Database Administrator','Database Engineer','Data Engineer']]
 ].map(([id,nama,desc,skill,posisi])=>({id,nama,desc,skill,posisi}));
 const jn=id=>JALUR.find(j=>j.id===id)?.nama||'-';
-const jalurLabel={web:'Web Development',data:'Data & AI',ux:'UI/UX Design',sec:'Cyber Security'};
+const jalurLabel=Object.fromEntries(
+  JALUR.map(j=>[j.id,j.nama])
+);
 let PROG=Array.from({length:16},(_,i)=>{const j=['web','data','ux','sec','mobile','cloud','qa','ai'][i%8];const free=i%3===2;
  return{id:i+1,nama:`Nama Program ${i+1}`,penyedia:'Nama Penyedia',jalur:j,biaya:free?0:(i+1)*350000,durasi:free?3:(i%5)+1,satuan:free?'minggu':'bulan',mode:i%4===3?'Offline':'Online',status:['Aktif','Aktif','Draf','Aktif','Nonaktif'][i%5],desc:'Deskripsi program akan tampil di sini: apa yang dipelajari, siapa yang cocok, dan hasil yang didapat peserta.',url:'https://example.com',tgl:`2026-0${(i%9)+1}-15`}});
 const dur=p=>`${p.durasi} ${p.satuan}`;
@@ -72,7 +76,7 @@ V.program=id=>{const p=PROG.find(x=>x.id==id);if(!p)return notFound();
 
 V.cari=q=>{const p=new URLSearchParams(q);return`<div class="wrap"><form class="search" id="sf2" style="max-width:none"><input name="q" value="${esc(p.get('q')||'')}" aria-label="Cari"><button class="btn">Cari</button></form>
  <div class="search-l" style="margin-top:1.25rem"><aside class="card filter" style="align-self:start" id="flt"><div class="row" style="justify-content:space-between"><b>Filter</b><a href="#/cari" class="hint">Reset</a></div>
- <h3>Jalur IT</h3>${['web','data','ux','sec'].map(k=>`<label><input type="checkbox" name="j" value="${k}" ${p.get('j')===k?'checked':''}>${jalurLabel[k]}</label>`).join('')}
+<h3>Jalur IT</h3>${JALUR.map(j=>`<label><input type="checkbox" name="j" value="${j.id}" ${p.get('j')===j.id?'checked':''}>${esc(j.nama)}</label>`).join('')}
  <h3>Biaya</h3><label><input type="checkbox" name="b" value="g">Gratis</label><label><input type="checkbox" name="b" value="p">Berbayar</label>
  <h3>Durasi</h3><label><input type="checkbox" name="d" value="a">Kurang dari 1 bulan</label><label><input type="checkbox" name="d" value="b">1–3 bulan</label><label><input type="checkbox" name="d" value="c">Lebih dari 3 bulan</label>
  <h3>Mode belajar</h3><label><input type="checkbox" name="m" value="Online">Online</label><label><input type="checkbox" name="m" value="Offline">Offline</label>
