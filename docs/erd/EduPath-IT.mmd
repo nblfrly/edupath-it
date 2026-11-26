@@ -1,0 +1,119 @@
+erDiagram
+    direction LR
+
+    users {
+        bigint id PK
+        varchar name
+        varchar email UK
+        varchar password_hash
+        enum role
+        timestamp created_at
+        timestamp updated_at
+        varchar google_sub UK
+    }
+
+    programs {
+        bigint id PK
+        varchar title
+        varchar provider_name
+        varchar category
+        text description
+        enum mode
+        varchar location
+        date deadline
+        varchar source_url
+        varchar registration_url
+        boolean is_active
+        bigint created_by FK "Opsional"
+        timestamp created_at
+        timestamp updated_at
+        enum fee_type
+        decimal fee_amount
+        char fee_currency
+        varchar duration_label
+        enum schedule_type
+        enum registration_status
+        text requirements
+        datetime verified_at
+    }
+
+    pathways {
+        bigint id PK
+        varchar name
+        varchar slug UK
+        text description
+        boolean is_active
+        timestamp created_at
+        timestamp updated_at
+        varchar source_url
+    }
+
+    pathwaySkills["pathway_skills"] {
+        bigint id PK
+        bigint pathway_id FK
+        varchar name
+        text description
+        int sort_order
+        varchar resource_url
+    }
+
+    userPathways["user_pathways"] {
+        bigint id PK
+        bigint user_id FK
+        bigint pathway_id FK "Unik bersama user_id"
+        timestamp started_at
+        enum status
+    }
+
+    userPathwaySkillProgress["user_pathway_skill_progress"] {
+        bigint id PK
+        bigint user_pathway_id FK
+        bigint pathway_skill_id FK "Unik bersama user_pathway_id"
+        boolean is_completed
+        datetime completed_at
+    }
+
+    programPathways["program_pathways"] {
+        bigint program_id PK, FK
+        bigint pathway_id PK, FK
+        varchar relevance_note
+    }
+
+    cvReviews["cv_reviews"] {
+        bigint id PK
+        bigint user_id FK
+        bigint pathway_id FK
+        timestamp created_at
+        tinyint score_1
+        tinyint score_2
+        tinyint score_3
+        tinyint check_count "Dihitung dari 1 sampai 3 skor"
+        decimal average_score "Rata-rata skor yang terisi"
+        json feedback
+    }
+
+    programCandidates["program_candidates"] {
+        bigint id PK
+        binary source_key UK
+        varchar source_url
+        bigint program_id FK "Opsional"
+        json proposed_data
+        enum status
+        timestamp discovered_at
+        datetime last_seen_at
+        bigint reviewed_by FK "Opsional"
+        datetime reviewed_at
+    }
+
+    users |o..o{ programs : "mencatat program"
+    pathways ||..o{ pathwaySkills : "memuat skill"
+    users ||..o{ userPathways : "mengikuti jalur"
+    pathways ||..o{ userPathways : "diikuti pengguna"
+    userPathways ||..o{ userPathwaySkillProgress : "mencatat progres"
+    pathwaySkills ||..o{ userPathwaySkillProgress : "ditandai pengguna"
+    programs ||--o{ programPathways : "dikaitkan ke jalur"
+    pathways ||--o{ programPathways : "menampilkan program"
+    users ||..o{ cvReviews : "menyimpan hingga 5"
+    pathways ||..o{ cvReviews : "menjadi target review"
+    programs |o..o{ programCandidates : "dirujuk usulan"
+    users |o..o{ programCandidates : "meninjau usulan"

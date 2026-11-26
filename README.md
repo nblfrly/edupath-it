@@ -61,8 +61,8 @@ Pengguna yang bertanggung jawab mengelola informasi program agar data yang terse
 |---|---|---|
 | 1 | Direktori Program | Menampilkan informasi bootcamp, beasiswa, dan pelatihan IT, termasuk pencarian, filter, detail, dan tautan pendaftaran. |
 | 2 | Jalur Karier IT | Menampilkan jalur karier dan keterampilan yang perlu dipelajari. |
-| 3 | Akun dan Progres Belajar | Memungkinkan mahasiswa login, mengikuti jalur karier, serta menyimpan progres keterampilan. |
-| 4 | Review CV dan Portofolio AI | Memberikan masukan mengenai kelebihan, kekurangan, dan bagian CV atau portofolio yang perlu diperbaiki. |
+| 3 | Akun dan Progres Belajar | Pengguna masuk melalui Google atau email dan kata sandi, lalu bisa menyimpan progres per skill. |
+| 4 | Review CV dengan AI | Pengguna memilih jalur dan 1–3 pengecekan untuk satu PDF maksimal 4 MB. Hasilnya dapat dibuka kembali di History. |
 | 5 | Manajemen Program oleh Admin | Memungkinkan admin menambah, menampilkan, mengubah, dan menghapus data program. |
 
 Fitur-fitur tersebut masih merupakan rancangan awal. Ruang lingkup versi pertama akan disesuaikan dengan hasil pembahasan tim dan feedback asisten.
@@ -82,22 +82,33 @@ Teknologi awal yang digunakan atau direncanakan:
 - **Frontend:** HTML, CSS, dan JavaScript.
 - **Lingkungan pengembangan lokal:** MAMP.
 - **Version control dan kolaborasi:** Git dan GitHub.
-- **Integrasi AI:** API AI yang akan ditentukan setelah riset dan pengujian awal.
+- **Integrasi AI:** Gemini untuk review CV.
 
-## Struktur Database Awal
+## Penyimpanan data
 
-Database `edupath_it` telah dibuat dengan enam tabel:
+Lihat [diagram relasi entitas EduPath IT](docs/erd/ERD.png) untuk menelusuri sembilan tabel dan dua belas relasi. [Sumber Mermaid](docs/erd/EduPath-IT.mmd) dapat diedit saat skema berubah.
+
+Untuk instalasi baru, impor [skema lengkap](database/schema.sql) melalui tab **Import** di phpMyAdmin. Untuk database `edupath_it` dengan enam tabel awal, impor [migrasi 001](database/migrations/001_expand_edupath.sql), kemudian [migrasi 002 untuk batas History](database/migrations/002_limit_cv_review_history.sql). Jika migrasi 001 sudah diterapkan, cukup impor migrasi 002. Keduanya mempertahankan data lama dan dapat dijalankan ulang.
 
 | Tabel | Fungsi |
 |---|---|
-| `users` | Menyimpan data akun pengguna dan admin. |
-| `programs` | Menyimpan informasi bootcamp, beasiswa, dan pelatihan. |
-| `pathways` | Menyimpan data jalur karier IT. |
+| `users` | Akun pengguna dan admin. Satu akun dapat memiliki hash kata sandi, ID Google unik (`google_sub`), atau keduanya. |
+| `programs` | Informasi resmi program, jenis dan nominal biaya, mata uang, durasi, pola belajar, syarat, status dan tenggat pendaftaran, serta waktu verifikasi. |
+| `pathways` | Jalur karier IT beserta tautan referensinya. |
+| `program_pathways` | Pasangan unik program dan jalur. Satu program bisa tampil pada beberapa roadmap dengan catatan relevansi masing-masing, misalnya skill yang dipelajari. |
 | `pathway_skills` | Menyimpan daftar keterampilan dalam setiap jalur karier. |
 | `user_pathways` | Menyimpan jalur karier yang diikuti pengguna. |
 | `user_pathway_skill_progress` | Menyimpan status penyelesaian keterampilan pengguna. |
+| `cv_reviews` | Satu baris per pengiriman yang selesai, berisi pemilik, jalur, waktu, skor tiap pengecekan, rata-rata, dan umpan balik dalam JSON. |
+| `program_candidates` | Antrean usulan agen beserta tautan sumber, data yang diusulkan, status kurasi, dan keputusan admin. |
 
-Struktur database ini merupakan rancangan awal dan dapat disesuaikan berdasarkan kebutuhan sistem yang telah disepakati.
+**Kartu program.** Gunakan `fee_type` untuk label gratis, berbayar, atau belum diketahui. Program berbayar dapat masuk meski penyedia belum mengumumkan nominalnya. `schedule_type` menjelaskan apakah peserta belajar mandiri atau mengikuti jadwal kelas. `deadline` dan `registration_status` menjelaskan pendaftaran. `is_active` mengatur visibilitas di direktori. Isi `verified_at` setelah memeriksa sumber resmi.
+
+**History CV.** Backend menyimpan hasil setelah seluruh pengecekan yang dipilih selesai. Isi `score_1` sampai `score_3` sesuai urutan dan biarkan sisa kolom bernilai `NULL`. Database menghitung `check_count` dan `average_score`. Isi `feedback` dengan ringkasan, aspek penilaian, dan saran. PDF hanya diproses sementara. Ambil riwayat berdasarkan ID pengguna dari sesi login.
+
+Setiap akun memiliki lima tempat di History. Satu pengiriman memakai satu tempat, termasuk saat pengguna memilih tiga pengecekan. Hasil tersimpan sampai pengguna memilih untuk menghapusnya. Pada halaman review, periksa kapasitas sebelum mengirim PDF ke Gemini. Saat penuh, arahkan pengguna ke History untuk memilih hasil yang akan dihapus. Database juga memeriksa kapasitas saat menyimpan hasil. Untuk penghapusan, gunakan `DELETE FROM cv_reviews WHERE id = ? AND user_id = ?` dengan ID pengguna dari sesi login. Akun lama yang sudah memiliki lebih dari lima hasil tetap dapat membacanya dan bisa menyimpan hasil baru setelah jumlahnya turun di bawah lima.
+
+**Kurasi agen.** Gunakan identitas yang stabil untuk tiap angkatan. Hitung `source_key` sebagai SHA-256 biner atas kombinasi penyedia, ID program dari penyedia (atau URL kanonis), dan angkatan. Saat agen menemukan entri yang sama, perbarui `last_seen_at`. Jika isi usulan berubah, kembalikan ke `pending` dan kosongkan keputusan sebelumnya. Saat admin menyetujui usulan, simpan program, jalur terkait, dan keputusan kurasi dalam satu transaksi.
 
 ## Anggota Kelompok
 
@@ -118,7 +129,7 @@ Progres awal:
 - [x] Membuat repository proyek lokal.
 - [x] Membuat database `edupath_it` dan enam tabel awal.
 - [x] Menguji koneksi PHP ke database MySQL.
-- [ ] Menyelesaikan dan mendokumentasikan ERD.
+- [x] Menyelesaikan dan mendokumentasikan ERD.
 - [ ] Menyelesaikan fitur CRUD data program.
 - [ ] Mengembangkan fitur pencarian dan filter.
 - [ ] Mengembangkan autentikasi dan progres belajar.
