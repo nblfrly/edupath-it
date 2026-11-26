@@ -5,7 +5,6 @@ CREATE DATABASE IF NOT EXISTS edupath_it
 
 USE edupath_it;
 
--- 1. akun pengguna dan admin
 CREATE TABLE users (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
@@ -20,7 +19,6 @@ CREATE TABLE users (
     CONSTRAINT ck_users_login_method CHECK (password_hash IS NOT NULL OR google_sub IS NOT NULL)
 ) ENGINE=InnoDB;
 
--- 2. direktori bootcamp, beasiswa, dan pelatihan
 CREATE TABLE programs (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(200) NOT NULL,
@@ -57,7 +55,6 @@ CREATE TABLE programs (
         ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- 3. daftar jalur karier IT
 CREATE TABLE pathways (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(150) NOT NULL,
@@ -70,7 +67,6 @@ CREATE TABLE pathways (
     source_url VARCHAR(500) NULL
 ) ENGINE=InnoDB;
 
--- 4. skill yang perlu dipelajari pada setiap jalur
 CREATE TABLE pathway_skills (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     pathway_id BIGINT UNSIGNED NOT NULL,
@@ -85,7 +81,6 @@ CREATE TABLE pathway_skills (
         ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 5. jalur karier yang diikuti pengguna
 CREATE TABLE user_pathways (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
@@ -107,7 +102,6 @@ CREATE TABLE user_pathways (
         ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- 6. progres skill pengguna
 CREATE TABLE user_pathway_skill_progress (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_pathway_id BIGINT UNSIGNED NOT NULL,
@@ -131,7 +125,6 @@ CREATE TABLE user_pathway_skill_progress (
         ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Satu program dapat muncul di beberapa jalur karier.
 CREATE TABLE program_pathways (
     program_id BIGINT UNSIGNED NOT NULL,
     pathway_id BIGINT UNSIGNED NOT NULL,
@@ -144,7 +137,6 @@ CREATE TABLE program_pathways (
         FOREIGN KEY (pathway_id) REFERENCES pathways(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- Satu pengiriman yang selesai disimpan sekaligus, tanpa berkas atau isi PDF.
 CREATE TABLE cv_reviews (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id BIGINT UNSIGNED NOT NULL,
@@ -170,7 +162,6 @@ CREATE TABLE cv_reviews (
     CONSTRAINT ck_cv_feedback_object CHECK (JSON_TYPE(feedback) = 'OBJECT')
 ) ENGINE=InnoDB;
 
--- Kunci per akun membuat dua penyimpanan serentak memeriksa kapasitas secara berurutan.
 DELIMITER //
 CREATE PROCEDURE IF NOT EXISTS check_cv_review_capacity(IN target_user_id BIGINT UNSIGNED)
 BEGIN
@@ -199,7 +190,6 @@ BEGIN
 END//
 DELIMITER ;
 
--- Antrean kurasi, terpisah dari program yang ditampilkan kepada pengguna.
 CREATE TABLE program_candidates (
     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     source_key BINARY(32) NOT NULL,
